@@ -1,16 +1,12 @@
 import pandas as pd
-import numpy as np
 import pickle
 import os
 import lightgbm as gbm
-from sklearn import model_selection
-from sklearn import linear_model,metrics
 from sklearn.pipeline import Pipeline
-from sklearn.preprocessing import LabelEncoder,OrdinalEncoder
-from sklearn import model_selection,metrics
+from sklearn.preprocessing import OrdinalEncoder
+from sklearn import model_selection
 
-os.chdir("static/files")
-
+os.chdir("binaries/files")
 RFE_columns = pd.read_csv('RFE_features_1.csv').columns
 df = pd.read_csv('train.csv')
 df_RFE = df[RFE_columns]
@@ -28,33 +24,11 @@ RFE_params = {
     'max_bin': 20,
     'learning_rate': 0.14, }
 
-### Parameters for Light GBM using Mutual info
-mutual_info_params = {'boosting_type': 'gbdt',
-                      'lambda_l1': 4.956734949314487e-08,
-                      'lambda_l2': 2.278541145546624e-08,
-                      'num_leaves': 131,
-                      'feature_fraction': 0.6,
-                      'bagging_fraction': 0.76,
-                      'bagging_freq': 2,
-                      'min_child_samples': 21,
-                      'max_bin': 18,
-                      'learning_rate': 0.15}
-
-## Intialize the models
 RFE_gbm = gbm.LGBMClassifier(**RFE_params)
-mutual_gbm = gbm.LGBMClassifier(**mutual_info_params)
-
 X_train, X_val, y_train, y_val = model_selection.train_test_split(df_RFE.drop('QuoteConversion_Flag', axis=1),df_RFE['QuoteConversion_Flag'], random_state=42,stratify=df_RFE['QuoteConversion_Flag'])
-GBM2 = Pipeline([('label_encoder', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-99)),('RFE_gbm', RFE_gbm)])
+finalModel = Pipeline([('label_encoder', OrdinalEncoder(handle_unknown='use_encoded_value', unknown_value=-99)),('RFE_gbm', RFE_gbm)])
+finalModel.fit(X_train, y_train)
 
-GBM2.fit(X_train, y_train)
-y_predict_RFE = GBM2.predict_proba(X_val)
-
-print(y_predict_RFE[:, 1])
-
-## Validation RFE AUC
-print("AUC score for the Light GBM RFE ensemble is:{:.2f}".format(metrics.roc_auc_score(y_val, y_predict_RFE[:, 1])))
-
-# save the model to disk
+# Save the Model
 filename = 'homesite_prediction_model.pkl'
-pickle.dump(GBM2, open(filename, 'wb'))
+pickle.dump(finalModel, open(filename, 'wb'))
